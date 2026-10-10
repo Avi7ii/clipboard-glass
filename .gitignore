@@ -1,0 +1,9 @@
+build/
+deps/
+signing/
+__pycache__/
+.test-build/
+device-evidence/
+/dist/
+.DS_Store
+*.py[cod]
