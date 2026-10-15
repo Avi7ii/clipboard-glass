@@ -31,6 +31,27 @@ public final class CopyCallbackScopeTest {
             finally { scope.leave(failing); }
         } catch (IllegalStateException expected) {}
         check(scope.current() == null && !scope.consumeAvailabilityCheck());
+        Object background = new Object(), foreground = new Object(), unrelated = new Object();
+        scope.capture(unrelated);
+        check(scope.resume(unrelated) == null);
+        CopyCallbackScope.Frame copy = scope.enter(2000);
+        scope.capture(background);
+        scope.leave(copy);
+        Thread worker = new Thread(() -> {
+            try {
+                CopyCallbackScope.Frame task = scope.resume(background);
+                check(task != null && task.copiedAt == 2000);
+                check(!scope.consumeAvailabilityCheck()); // async work cannot re-grant availability
+                scope.capture(foreground);
+                scope.leave(task);
+                check(scope.current() == null && scope.resume(background) == null);
+            } catch (Throwable error) { failure.set(error); }
+        });
+        worker.start(); worker.join(); check(failure.get() == null);
+        CopyCallbackScope.Frame resumed = scope.resume(foreground);
+        check(resumed != null && resumed.copiedAt == 2000 && !scope.consumeAvailabilityCheck());
+        scope.leave(resumed);
+        check(scope.current() == null && scope.resume(foreground) == null);
         System.out.println("Native callback scope: single check, nesting, threads and exception cleanup passed");
     }
     private static void check(boolean ok) { if (!ok) throw new AssertionError(); }

@@ -1,14 +1,16 @@
 # 复制预览
 
-面向 Android 16 / ColorOS 16.1 的 LSPosed 模块，复用系统左下角复制预览，使用 ColorOS 的 Oplus 材质模糊。
+面向 Android 16–17 / ColorOS 16.1–17 的 LSPosed 模块，复用系统左下角复制预览，使用 ColorOS 的 Oplus 材质模糊。
 
-下载：[最新发布](https://github.com/Avi7ii/clipboard-glass/releases/latest) · [1.6.2 APK](https://github.com/Avi7ii/clipboard-glass/releases/download/v1.6.2/clipboard-glass-1.6.2.apk) · [SHA-256 校验文件](https://github.com/Avi7ii/clipboard-glass/releases/download/v1.6.2/SHA256SUMS)。Release 同时提供整理后的源码包和 APK 审计摘要。
+下载：[最新发布](https://github.com/Avi7ii/clipboard-glass/releases/latest) · [1.7.0 APK](https://github.com/Avi7ii/clipboard-glass/releases/download/v1.7.0/clipboard-glass-1.7.0.apk) · [SHA-256 校验文件](https://github.com/Avi7ii/clipboard-glass/releases/download/v1.7.0/SHA256SUMS)。Release 同时提供整理后的源码包和 APK 审计摘要。
 
 包名：`dev.thom.clipboardglass`。需要支持 libxposed API 101 的 LSPosed。作用域固定为 `com.android.systemui` 主进程。
 
 当前版本已安装到目标手机并加载。设置提供总开关、高级模糊、圆角、材质遮罩、显示时长、浮窗大小、预览字号与字重。显示时长为 1.0–5.0 秒，步进 0.1 秒；没有预设档位、常驻选项或自定义长时长。
 
 浮窗固定在屏幕左下角，忽略键盘高度，键盘弹出时仍保留完整预览，文字与操作图标始终按背景亮度选择黑色或白色。移除 Send to device。每次复制产生独立的固定截止时间，回桌面和点击背景均不改变它。卡片可向任意方向拖动，松手位移达到 32 dp 后划走，否则回弹。
+
+1.7.0 适配 Android 17 / ColorOS 17：修复旧版 SDK 36 限制导致模块直接跳过加载的问题；对新版原生异步复制任务传递复制时间，保留固定倒计时；适配新的编辑点击与完成回调，以及 COUI 材质状态接口。Android 16 的原有接口路径保留。已在一加 13T 的 PKX110_17.0.0.104(CN01) 实测，用户确认预览、模糊、固定位置和编辑均正常。
 
 1.6.0 恢复完整的系统复制回调和原生点击监听。复制回调中仅放行一次国内版本的预览可用性检查；不自行读取、写入或清空剪贴板。点击时由原生代码创建并启动编辑页，确认实际编辑窗口恢复并获得焦点后关闭浮窗；启动失败时保留原倒计时。手势回桌面后的短暂启动限制通过 SystemUI 的既有权限解除，不再使用自建 PendingIntent 或查询任务列表。
 

@@ -94,7 +94,7 @@ def main():
         keystore.chmod(0o600)
     output = ROOT / "dist"
     output.mkdir(exist_ok=True)
-    apk = output / "clipboard-glass-1.6.2.apk"
+    apk = output / "clipboard-glass-1.7.0.apk"
     run(TOOLS / "apksigner", "sign", "--ks", keystore,
         "--ks-pass", f"file:{password_file}",
         "--out", apk, aligned)

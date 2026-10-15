@@ -82,6 +82,7 @@ final class PreviewLifetime {
 
     boolean manages(Object nativeTimeout) { return managedTimeouts.containsKey(nativeTimeout); }
     boolean active(Object controller) { return deadlines.containsKey(controller); }
+    boolean awaitingEditor(Object controller) { return editor.waiting(controller); }
 
     void watchEditor(Object controller, Context context, ComponentName expected) {
         if (deadlines.containsKey(controller)) editor.prepare(controller, context, expected);

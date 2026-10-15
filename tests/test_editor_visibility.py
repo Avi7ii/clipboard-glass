@@ -75,6 +75,7 @@ public class EditorVisibilityTest {
   ComponentName editor=new ComponentName("native.editor"),home=new ComponentName("launcher");
   ArrayList<Object> closed=new ArrayList<>();EditorVisibility observer=new EditorVisibility(closed::add, s->{});
   Object first=new Object();check(observer.prepare(first,context,editor));
+  check(observer.waiting(first));
   Handler.advance(500);check(closed.isEmpty()); // accepted request without an editor never closes
   Activity launcher=new Activity(home);launcher.window.decor.focused=true;
   app.callbacks.onActivityResumed(launcher);Handler.advance(100);check(closed.isEmpty());
@@ -84,11 +85,12 @@ public class EditorVisibilityTest {
   Handler.advance(100);check(closed.isEmpty()); // focus alone is not a shown window
   nativeEditor.window.decor.attached=true;nativeEditor.finishing=true;
   Handler.advance(100);check(closed.isEmpty()); // premature native finish keeps the card
-  observer.cancel(first);nativeEditor.finishing=false;
+  observer.cancel(first);check(!observer.waiting(first));nativeEditor.finishing=false;
   app.callbacks.onActivityResumed(nativeEditor);Handler.advance(100);check(closed.isEmpty());
   Object second=new Object();observer.prepare(second,context,editor);
   app.callbacks.onActivityResumed(nativeEditor);Handler.advance(0);
   check(closed.size()==1 && closed.get(0)==second);
+  check(!observer.waiting(second));
   Handler.advance(500);check(closed.size()==1); // once only
   Object third=new Object();observer.prepare(third,context,editor);
   nativeEditor.window.decor.focused=false;app.callbacks.onActivityResumed(nativeEditor);

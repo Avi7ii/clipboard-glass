@@ -74,6 +74,8 @@ final class EditorVisibility {
         if (previous != null) main.removeCallbacks(previous);
     }
 
+    boolean waiting(Object controller) { return pending.containsKey(controller); }
+
     private final class Request implements Runnable {
         private final WeakReference<Object> controller;
         private final ComponentName expected;

@@ -64,6 +64,25 @@ public final class HookEntry extends XposedModule {
             // bypassed by an old inlined availability check or animateOut call.
             if (!deoptimize(clipboard.callback) || !deoptimize(editor.run)
                     || !deoptimize(blur.setClip)) throw new IllegalStateException();
+            for (java.lang.reflect.Method taskRun : clipboard.taskRuns) {
+                if (!deoptimize(taskRun)) throw new IllegalStateException();
+            }
+            if (editor.exitAnimation != null && (!deoptimize(lifetime.finish)
+                    || !deoptimize(editor.finishAnimationEnd))) throw new IllegalStateException();
+            for (java.lang.reflect.Constructor<?> constructor : clipboard.taskConstructors) {
+                handles.add(hook(constructor).intercept(chain -> {
+                    Object result = chain.proceed();
+                    if (settings.enabled()) clipboard.scope.capture(chain.getThisObject());
+                    return result;
+                }));
+            }
+            for (java.lang.reflect.Method taskRun : clipboard.taskRuns) {
+                handles.add(hook(taskRun).intercept(chain -> {
+                    CopyCallbackScope.Frame task = clipboard.scope.resume(chain.getThisObject());
+                    try { return chain.proceed(); }
+                    finally { if (task != null) clipboard.scope.leave(task); }
+                }));
+            }
             handles.add(hook(keyboard.windowConstructor).intercept(chain -> {
                 Object result = chain.proceed();
                 if (settings.enabled()) keyboard.pinWindow(chain.getThisObject());
@@ -108,15 +127,36 @@ public final class HookEntry extends XposedModule {
                 try { return chain.proceed(); }
                 finally { editor.leave(previous); }
             }));
-            handles.add(hook(editor.animateOut).intercept(chain -> {
-                if (settings.enabled() && editor.launching(chain.getThisObject())) return null;
-                return chain.proceed();
-            }));
+            if (editor.animateOut != null) {
+                handles.add(hook(editor.animateOut).intercept(chain -> {
+                    if (settings.enabled() && editor.launching(chain.getThisObject())) return null;
+                    return chain.proceed();
+                }));
+            }
+            if (editor.exitAnimation != null) {
+                handles.add(hook(editor.exitAnimation).intercept(chain -> {
+                    if (settings.enabled() && editor.editingView(chain.getThisObject())) {
+                        // Keep the card visible while the OEM completion starts its editor.
+                        // The focused editor callback, or the original copy deadline, closes it.
+                        return android.animation.ValueAnimator.ofFloat(0f, 1f).setDuration(0);
+                    }
+                    return chain.proceed();
+                }));
+                handles.add(hook(editor.finishAnimationEnd).intercept(chain -> {
+                    Object controller = settings.enabled() ? editor.pendingCompletion(chain.getThisObject()) : null;
+                    if (controller == null) return chain.proceed();
+                    Object previous = editor.enterCompletion(controller);
+                    try { return chain.proceed(); }
+                    finally { editor.leave(previous); }
+                }));
+            }
             handles.add(hook(lifetime.resetTimeout).intercept(chain -> {
                 if (settings.enabled() && lifetime.manages(chain.getThisObject())) return null;
                 return chain.proceed();
             }));
             handles.add(hook(lifetime.hideImmediate).intercept(chain -> {
+                if (settings.enabled() && editor.launching(chain.getThisObject())
+                        && lifetime.awaitingEditor(chain.getThisObject())) return null;
                 lifetime.stop(chain.getThisObject());
                 return chain.proceed();
             }));
@@ -131,7 +171,7 @@ public final class HookEntry extends XposedModule {
             }));
             handles.add(hook(blur.setActionChip).intercept(chain -> {
                 Object result = chain.proceed();
-                blur.styleView(chain.getThisObject());
+                blur.styleAction(chain.getThisObject());
                 return result;
             }));
             handles.add(hook(keyboard.viewInsets).intercept(chain -> {

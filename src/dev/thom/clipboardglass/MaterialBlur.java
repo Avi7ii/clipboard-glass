@@ -9,6 +9,7 @@ import android.graphics.Outline;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.provider.Settings;
+import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
@@ -31,11 +32,14 @@ final class MaterialBlur {
     private final Field preview;
     private final Field border;
     private final Field actions;
+    private final Field actionOwner, actionKind;
     private final Constructor<?> builderConstructor;
     private final Field useBlur;
     private final Field darkMode;
     private final Field systemBlurState;
     private final Field windowBlurState;
+    private final Method enableBlur, blurEnabled;
+    private final Object animationLevel;
     private final Method setTarget;
     private final Method setRadius;
     private final Method setCorner;
@@ -70,8 +74,16 @@ final class MaterialBlur {
         }
         loader.loadClass("com.oplus.graphics.OplusBlurParam");
         setClip = Reflect.method(controller, "setClipData", android.content.ClipData.class, String.class);
-        setActionChip = Reflect.method(view, "setActionChip", android.app.RemoteAction.class,
-                loader.loadClass("com.android.systemui.clipboardoverlay.ClipboardOverlayController$$ExternalSyntheticLambda0"));
+        if (Build.VERSION.SDK_INT == 37) {
+            Class<?> actionTask = loader.loadClass(controller.getName() + "$$ExternalSyntheticLambda9");
+            setActionChip = Reflect.method(actionTask, "run");
+            actionOwner = Reflect.field(actionTask, "f$0");
+            actionKind = Reflect.field(actionTask, "$r8$classId");
+        } else {
+            setActionChip = Reflect.method(view, "setActionChip", android.app.RemoteAction.class,
+                    loader.loadClass(controller.getName() + "$$ExternalSyntheticLambda0"));
+            actionOwner = actionKind = null;
+        }
         overlayView = Reflect.field(controller, "mView");
         preview = Reflect.field(view, "mClipboardPreview");
         border = Reflect.field(view, "mPreviewBorder");
@@ -79,8 +91,18 @@ final class MaterialBlur {
         builderConstructor = builder.getConstructor(Context.class);
         useBlur = Reflect.field(builder, "mUseBackgroundBlur");
         darkMode = Reflect.field(builder, "mIsDarkMode");
-        systemBlurState = Reflect.field(builder, "mSettingBlurState");
-        windowBlurState = Reflect.field(builder, "mWindowBlurEnable");
+        if (Build.VERSION.SDK_INT == 37) {
+            Class<?> level = loader.loadClass("com.coui.appcompat.uiutil.AnimLevel");
+            animationLevel = Reflect.field(level, "MID_END").get(null);
+            enableBlur = Reflect.method(builder, "setUseBackgroundBlur", boolean.class, level);
+            blurEnabled = Reflect.method(builder, "shouldEnableBlur");
+            systemBlurState = windowBlurState = null;
+        } else {
+            systemBlurState = Reflect.field(builder, "mSettingBlurState");
+            windowBlurState = Reflect.field(builder, "mWindowBlurEnable");
+            enableBlur = blurEnabled = null;
+            animationLevel = null;
+        }
         setTarget = Reflect.method(builder, "setTargetView", View.class);
         setRadius = Reflect.method(builder, "setBlurRadius", int.class);
         setCorner = Reflect.method(builder, "setCornerRadius", float.class);
@@ -92,6 +114,14 @@ final class MaterialBlur {
     void styleController(Object controller) {
         if (controller == null) return;
         try { styleView(overlayView.get(controller)); } catch (ReflectiveOperationException ignored) {}
+    }
+
+    void styleAction(Object receiver) {
+        if (actionOwner == null) styleView(receiver);
+        else {
+            try { if (actionKind.getInt(receiver) == 1) styleController(actionOwner.get(receiver)); }
+            catch (ReflectiveOperationException | RuntimeException ignored) {}
+        }
     }
 
     void styleView(Object view) {
@@ -205,11 +235,12 @@ final class MaterialBlur {
                     }
                     setMaterialColors[i].invoke(builder, rgba);
                 }
-                useBlur.setBoolean(builder, true);
                 setTarget.invoke(builder, target);
                 setRadius.invoke(builder, Math.round(32f * density));
                 setCorner.invoke(builder, cornerDp * density);
                 setSmooth.invoke(builder, 2f);
+                if (enableBlur != null) enableBlur.invoke(builder, true, animationLevel);
+                else useBlur.setBoolean(builder, true);
                 apply.invoke(builder);
                 Drawable material = target.getBackground();
                 if (material == null || material == original) throw new IllegalStateException();
@@ -256,7 +287,9 @@ final class MaterialBlur {
         private void sampleContrast() {
             if (builder == null || !target.isAttachedToWindow() || contrast == null) return;
             try {
-                if (!systemBlurState.getBoolean(builder) || !windowBlurState.getBoolean(builder)) {
+                boolean enabled = blurEnabled != null ? (Boolean) blurEnabled.invoke(builder)
+                        : systemBlurState.getBoolean(builder) && windowBlurState.getBoolean(builder);
+                if (!enabled) {
                     setForeground(darkMode.getBoolean(builder) ? Color.WHITE : Color.rgb(24, 24, 24));
                     target.postDelayed(contrastPulse, 350);
                     return;

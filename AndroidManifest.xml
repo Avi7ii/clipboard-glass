@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="dev.thom.clipboardglass" android:versionCode="12" android:versionName="1.6.2">
+    package="dev.thom.clipboardglass" android:versionCode="13" android:versionName="1.7.0">
     <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36" />
     <application android:label="复制预览" android:allowBackup="false"
         android:debuggable="false" android:hasCode="true" android:usesCleartextTraffic="false"
